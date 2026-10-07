@@ -1,9 +1,25 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Serverless SecOps Architecture: S3 trigger to Lambda for malware scanning.'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Event-driven SecOps Architecture: Parses CloudTrail logs from S3, triggers Lambda for IAM anomalies, sends SES Alert.'
+
 Resources:
-  ScannerFunction:
-    Type: AWS::Lambda::Function
+  CloudTrailBucket:
+    Type: AWS::S3::Bucket
+
+  SecurityScannerFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      Handler: index.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      CodeUri: src/
+      Handler: scanner.handler
       Runtime: python3.9
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref CloudTrailBucket
+        - SESCrudPolicy:
+            IdentityName: "security-alerts@company.com"
+      Events:
+        S3Trigger:
+          Type: S3
+          Properties:
+            Bucket: !Ref CloudTrailBucket
+            Events: s3:ObjectCreated:*
